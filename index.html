@@ -386,6 +386,12 @@ function doSignOut() {
   auth.signOut();
 }
 
+// 리다이렉트 로그인 결과 처리
+show('loadingScreen');
+auth.getRedirectResult().catch(err => {
+  console.error('redirect error', err);
+});
+
 auth.onAuthStateChanged(user => {
   if (user) {
     document.getElementById('userAvatar').src = user.photoURL || '';
