@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>여행 가계부</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f7f6f3; --border: #e3e2e0;
+    --text: #37352f; --text2: #9b9a97; --accent: #2383e2;
+    --red: #eb5757; --green: #0f9960; --hover: #f1f0ef;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif; background: var(--bg2); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+
+  /* ── Trip list (home screen) ── */
+  #tripHome { max-width: 700px; margin: 0 auto; padding: 48px 24px; }
+  #tripHome h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+  #tripHome .subtitle { color: var(--text2); font-size: 14px; margin-bottom: 28px; }
+  .trip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .trip-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px; cursor: pointer; transition: box-shadow 0.15s, transform 0.1s;
+    position: relative;
+  }
+  .trip-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); transform: translateY(-2px); }
+  .trip-card .trip-emoji { font-size: 28px; margin-bottom: 8px; }
+  .trip-card .trip-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .trip-card .trip-meta { font-size: 12px; color: var(--text2); }
+  .trip-card .trip-total { font-size: 13px; font-weight: 600; color: var(--red); margin-top: 6px; }
+  .trip-card .trip-del {
+    position: absolute; top: 10px; right: 10px;
+    background: none; border: none; cursor: pointer; color: var(--text2);
+    font-size: 14px; padding: 2px 5px; border-radius: 4px; opacity: 0;
+    transition: opacity 0.1s; pointer-events: none;
+  }
+  .trip-card:hover .trip-del { opacity: 1; pointer-events: auto; }
+  .trip-card.new-card {
+    border: 2px dashed var(--border); background: transparent;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--text2); gap: 6px; min-height: 110px;
+  }
+  .trip-card.new-card:hover { border-color: var(--accent); color: var(--accent); background: #f0f7ff; }
+  .new-card-icon { font-size: 24px; }
+  .new-card-text { font-size: 13px; font-weight: 500; }
+
+  /* ── App shell ── */
+  #app { display: none; background: var(--bg); min-height: 100vh; }
+  .app-header { padding: 20px 40px 0; max-width: 1200px; margin: 0 auto; }
+  .back-btn { display: inline-flex; align-items: center; gap: 6px; color: var(--text2); font-size: 13px; cursor: pointer; background: none; border: none; padding: 4px 0; margin-bottom: 8px; }
+  .back-btn:hover { color: var(--text); }
+  .app-title-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .app-emoji { font-size: 32px; cursor: pointer; }
+  .app-title { font-size: 26px; font-weight: 700; cursor: pointer; border-bottom: 2px solid transparent; padding-bottom: 2px; }
+  .app-title:hover { border-bottom-color: var(--border); }
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .toolbar-btn { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 6px; border: none; background: transparent; color: var(--text2); font-size: 13px; cursor: pointer; transition: background 0.1s; }
+  .toolbar-btn:hover { background: var(--hover); color: var(--text); }
+  .toolbar-btn.active { background: var(--hover); color: var(--text); font-weight: 500; }
+  .toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+  .btn-new { margin-left: auto; background: var(--accent) !important; color: #fff !important; font-weight: 500; padding: 6px 14px !important; }
+  .btn-new:hover { background: #1a6cbf !important; }
+
+  /* ── Summary ── */
+  .summary-section { max-width: 1200px; margin: 0 auto 8px; padding: 16px 40px 0; }
+  .summary-top { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .card { flex: 1; min-width: 120px; background: var(--bg2); border-radius: 8px; padding: 12px 16px; border: 1px solid var(--border); }
+  .card-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .card-value { font-size: 18px; font-weight: 600; }
+  .card-value.expense { color: var(--red); }
+  .card-value.income { color: var(--green); }
+  .country-summary { display: flex; gap: 10px; flex-wrap: wrap; }
+  .country-card { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; min-width: 160px; flex: 1; }
+  .country-flag { font-size: 22px; }
+  .country-info { flex: 1; }
+  .country-name { font-size: 13px; font-weight: 600; }
+  .country-currency { font-size: 11px; color: var(--text2); margin-bottom: 2px; }
+
+  /* ── Table ── */
+  .table-wrap { max-width: 1200px; margin: 0 auto; padding: 0 40px 60px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 620px; }
+  thead th { text-align: left; padding: 6px 10px; font-size: 12px; font-weight: 500; color: var(--text2); border-bottom: 1px solid var(--border); white-space: nowrap; user-select: none; }
+  thead th.sortable { cursor: pointer; }
+  thead th.sortable:hover { color: var(--text); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:hover { background: var(--hover); }
+  tbody td { padding: 8px 10px; vertical-align: middle; }
+  .td-name { display: flex; align-items: center; gap: 8px; min-width: 140px; }
+  .td-amount { font-variant-numeric: tabular-nums; }
+  .amount-expense { color: var(--red); }
+  .amount-income { color: var(--green); }
+  .cur-badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 11px; font-weight: 600; background: var(--bg2); color: var(--text2); }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+  .tag-fr { background: #fdf3e7; color: #c87b0a; }
+  .tag-it { background: #e8f5e9; color: #2e7d32; }
+  .tag-ch { background: #fce4ec; color: #c2185b; }
+  .tag-kr { background: #eaf3fb; color: var(--accent); }
+  .tag-etc { background: var(--bg2); color: var(--text2); }
+  .action-btns { display: flex; gap: 4px; opacity: 0; transition: opacity 0.1s; }
+  tr:hover .action-btns { opacity: 1; }
+  .btn-icon { background: none; border: none; cursor: pointer; padding: 3px 5px; border-radius: 4px; color: var(--text2); font-size: 14px; }
+  .btn-icon:hover { background: var(--border); color: var(--text); }
+  tfoot td { padding: 10px; font-weight: 600; color: var(--text2); font-size: 12px; border-top: 1px solid var(--border); }
+  .btn-add-row { display: flex; align-items: center; gap: 6px; background: none; border: none; color: var(--text2); font-size: 13px; cursor: pointer; padding: 4px 0; }
+  .btn-add-row:hover { color: var(--text); }
+
+  #dateView { max-width: 1200px; margin: 0 auto; padding: 0 40px 60px; display: none; }
+  #filterBar { display: none; max-width: 1200px; margin: 0 auto 0; padding: 0 40px; }
+  .filter-inner { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+
+  /* ── Modals ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--bg); border-radius: 12px; padding: 28px; width: 100%; max-width: 500px; box-shadow: 0 8px 40px rgba(0,0,0,0.18); animation: popIn 0.15s ease; max-height: 90vh; overflow-y: auto; }
+  @keyframes popIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal h2 { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .form-group input, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; font-family: inherit; background: var(--bg); color: var(--text); outline: none; transition: border 0.15s; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+  .form-row { display: flex; gap: 12px; }
+  .form-row .form-group { flex: 1; }
+  .radio-group { display: flex; gap: 8px; }
+  .radio-label { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.1s; }
+  .radio-label input { display: none; }
+  .radio-label.sel-expense { border-color: var(--red); background: #fff5f5; color: var(--red); font-weight: 500; }
+  .radio-label.sel-income { border-color: var(--green); background: #f0faf4; color: var(--green); font-weight: 500; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  .btn-cancel { padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 14px; cursor: pointer; }
+  .btn-cancel:hover { background: var(--hover); }
+  .btn-save { padding: 8px 20px; border-radius: 6px; border: none; background: var(--accent); color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .btn-save:hover { background: #1a6cbf; }
+  .amount-input-wrap { display: flex; }
+  .amount-input-wrap select { width: 90px; border-radius: 6px 0 0 6px; border-right: none; flex-shrink: 0; }
+  .amount-input-wrap input { border-radius: 0 6px 6px 0; }
+
+  /* emoji picker row */
+  .emoji-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .emoji-opt { font-size: 22px; cursor: pointer; padding: 4px; border-radius: 6px; border: 2px solid transparent; transition: border 0.1s; }
+  .emoji-opt:hover, .emoji-opt.selected { border-color: var(--accent); background: #f0f7ff; }
+
+  /* empty */
+  .empty-state { text-align: center; padding: 48px 16px; color: var(--text2); }
+  .empty-state p { margin-top: 8px; font-size: 13px; }
+
+  /* Mobile */
+  @media (max-width: 640px) {
+    #tripHome { padding: 32px 16px; }
+    .trip-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .app-header { padding: 16px 16px 0; }
+    .summary-section { padding: 12px 16px 0; }
+    .table-wrap { padding: 0 0 60px; }
+    #dateView { padding: 0 16px 60px; }
+    #filterBar { padding: 0 16px; }
+    .card { min-width: 90px; padding: 10px 12px; }
+    .card-value { font-size: 14px; }
+    .country-card { min-width: 130px; }
+
+    table, thead, tbody, tfoot, tr, th, td { display: block; }
+    thead { display: none; }
+    tbody tr { margin: 0 16px 8px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--bg); box-shadow: var(--shadow); }
+    tbody tr:hover { background: var(--bg); }
+    tbody td { padding: 3px 0; border: none; font-size: 13px; }
+    tbody td::before { content: attr(data-label); font-size: 11px; color: var(--text2); font-weight: 500; display: inline-block; min-width: 56px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .td-name::before { display: none; }
+    .td-name .name-text { font-size: 14px; font-weight: 600; }
+    .action-btns { opacity: 1; margin-left: auto; }
+    tfoot { display: block; margin: 0 16px; }
+    tfoot tr { display: flex; gap: 12px; flex-wrap: wrap; }
+    tfoot td { padding: 10px 0; border-top: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ Trip Home ══════════════════════════════════════ -->
+<div id="tripHome">
+  <h1>✈️ 여행 가계부</h1>
+  <p class="subtitle">여행을 선택하거나 새로 만들어보세요</p>
+  <div class="trip-grid" id="tripGrid"></div>
+</div>
+
+<!-- ══ App (single trip) ════════════════════════════ -->
+<div id="app">
+  <div class="app-header">
+    <button class="back-btn" onclick="goHome()">← 모든 여행</button>
+    <div class="app-title-row">
+      <span class="app-emoji" id="appEmoji" onclick="openTripEdit()">✈️</span>
+      <span class="app-title" id="appTitle" onclick="openTripEdit()">여행 이름</span>
+    </div>
+    <div class="toolbar">
+      <button class="toolbar-btn active" onclick="setView('table',this)">☰ 기본 보기</button>
+      <button class="toolbar-btn" onclick="setView('calendar',this)">📅 날짜별 보기</button>
+      <div class="toolbar-sep"></div>
+      <button class="toolbar-btn" id="filterBtn" onclick="toggleFilter()">🔽 필터</button>
+      <button class="toolbar-btn btn-new" onclick="openModal()">+ 새로 만들기</button>
+    </div>
+  </div>
+
+  <div id="filterBar">
+    <div class="filter-inner">
+      <span style="font-size:12px;color:var(--text2);font-weight:500;">필터:</span>
+      <select id="filterType" onchange="renderAll()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg);">
+        <option value="all">전체</option>
+        <option value="expense">지출만</option>
+        <option value="income">수입만</option>
+      </select>
+      <select id="filterCountry" onchange="renderAll()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg);">
+        <option value="all">모든 국가</option>
+        <option value="프랑스">🇫🇷 프랑스</option>
+        <option value="이탈리아">🇮🇹 이탈리아</option>
+        <option value="스위스">🇨🇭 스위스</option>
+        <option value="한국">🇰🇷 한국</option>
+        <option value="기타">기타</option>
+      </select>
+      <input type="text" id="filterSearch" onkeyup="renderAll()" placeholder="검색..." style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg);outline:none;">
+    </div>
+  </div>
+
+  <div class="summary-section">
+    <div class="summary-top">
+      <div class="card">
+        <div class="card-label">총 지출</div>
+        <div class="card-value expense" id="sumExpense">0</div>
+      </div>
+      <div class="card">
+        <div class="card-label">총 수입</div>
+        <div class="card-value income" id="sumIncome">0</div>
+      </div>
+      <div class="card" id="cardBalance" style="border-width:2px">
+        <div class="card-label">차액</div>
+        <div class="card-value" id="sumBalance">0</div>
+      </div>
+      <div class="card">
+        <div class="card-label">항목 수</div>
+        <div class="card-value" id="sumCount" style="color:var(--text)">0건</div>
+      </div>
+    </div>
+    <div class="country-summary" id="countrySummary"></div>
+  </div>
+
+  <div class="table-wrap" id="tableWrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="min-width:180px">이름</th>
+          <th class="sortable" onclick="sortBy('date')" style="min-width:110px">날짜 ↕</th>
+          <th style="min-width:80px">구분</th>
+          <th class="sortable" onclick="sortBy('amount')" style="min-width:110px">금액 ↕</th>
+          <th style="min-width:100px">국가</th>
+          <th style="min-width:70px">통화</th>
+          <th style="min-width:120px">비고</th>
+          <th style="min-width:50px"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3" style="color:var(--text2);font-size:12px;">합계</td>
+          <td id="footTotal" colspan="5"></td>
+        </tr>
+      </tfoot>
+    </table>
+    <div style="padding:6px 10px;">
+      <button class="btn-add-row" onclick="openModal()">＋ 새 항목</button>
+    </div>
+  </div>
+
+  <div id="dateView"></div>
+</div>
+
+<!-- ══ Entry Modal ═══════════════════════════════════ -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnBg(event)">
+  <div class="modal">
+    <h2 id="modalTitle">새 항목 추가</h2>
+    <div class="form-group">
+      <label>이름</label>
+      <input type="text" id="fName" placeholder="예: 버스비, 호텔, 식사...">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>날짜</label>
+        <input type="date" id="fDate">
+      </div>
+      <div class="form-group">
+        <label>국가</label>
+        <select id="fCountry" onchange="onCountryChange()">
+          <option value="">선택 안함</option>
+          <option value="프랑스">🇫🇷 프랑스</option>
+          <option value="이탈리아">🇮🇹 이탈리아</option>
+          <option value="스위스">🇨🇭 스위스</option>
+          <option value="한국">🇰🇷 한국</option>
+          <option value="기타">기타</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>구분</label>
+      <div class="radio-group">
+        <label class="radio-label sel-expense" id="lblExpense">
+          <input type="radio" name="type" value="expense" checked onchange="updateTypeStyle()">💸 지출
+        </label>
+        <label class="radio-label" id="lblIncome">
+          <input type="radio" name="type" value="income" onchange="updateTypeStyle()">💰 수입
+        </label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>금액 및 통화</label>
+      <div class="amount-input-wrap">
+        <select id="fCurrency" onchange="onCurrencyChange()">
+          <option value="EUR">€ EUR</option>
+          <option value="CHF">Fr CHF</option>
+          <option value="KRW">₩ KRW</option>
+          <option value="USD">$ USD</option>
+          <option value="GBP">£ GBP</option>
+          <option value="JPY">¥ JPY</option>
+        </select>
+        <input type="number" id="fAmount" placeholder="0.00" step="0.01" min="0">
+      </div>
+    </div>
+    <div class="form-group" id="fKrwGroup">
+      <label>원화 환산 (₩) — 선택사항</label>
+      <input type="number" id="fKrw" placeholder="직접 입력하거나 비워두세요" step="1" min="0">
+    </div>
+    <div class="form-group">
+      <label>비고</label>
+      <input type="text" id="fNote" placeholder="메모...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">취소</button>
+      <button class="btn-save" onclick="saveEntry()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ New Trip Modal ═════════════════════════════════ -->
+<div class="modal-overlay" id="tripModalOverlay" onclick="closeTripModalOnBg(event)">
+  <div class="modal">
+    <h2 id="tripModalTitle">새 여행 만들기</h2>
+    <div class="form-group">
+      <label>이모지</label>
+      <div class="emoji-row" id="emojiRow">
+        ✈️ 🏝️ 🏔️ 🗼 🏕️ 🚢 🎡 🌏 🗺️ 🧳
+      </div>
+      <input type="hidden" id="tEmoji" value="✈️">
+    </div>
+    <div class="form-group">
+      <label>여행 이름</label>
+      <input type="text" id="tName" placeholder="예: 유럽 배낭여행 2025">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>시작일</label>
+        <input type="date" id="tStart">
+      </div>
+      <div class="form-group">
+        <label>종료일</label>
+        <input type="date" id="tEnd">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeTripModal()">취소</button>
+      <button class="btn-save" onclick="saveTrip()">만들기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ─────────────────────────────────────────────
+const COUNTRY_INFO = {
+  '프랑스':   { flag:'🇫🇷', currency:'EUR', cls:'tag-fr' },
+  '이탈리아': { flag:'🇮🇹', currency:'EUR', cls:'tag-it' },
+  '스위스':   { flag:'🇨🇭', currency:'CHF', cls:'tag-ch' },
+  '한국':     { flag:'🇰🇷', currency:'KRW', cls:'tag-kr' },
+  '기타':     { flag:'🌍', currency:'USD', cls:'tag-etc' },
+};
+const CUR_SYM = { EUR:'€', CHF:'Fr ', KRW:'₩', USD:'$', GBP:'£', JPY:'¥' };
+const CUR_DEC = { EUR:2, CHF:2, KRW:0, USD:2, GBP:2, JPY:0 };
+const EMOJIS = ['✈️','🏝️','🏔️','🗼','🏕️','🚢','🎡','🌏','🗺️','🧳'];
+
+// ── State ───────────────────────────────────────────────
+let trips = JSON.parse(localStorage.getItem('trips_v1') || '[]');
+let currentTripId = null;
+let editingEntryId = null;
+let editingTripId = null;
+let sortField = 'date', sortAsc = true;
+let currentView = 'table', filterOpen = false;
+
+function saveTrips() { localStorage.setItem('trips_v1', JSON.stringify(trips)); }
+function currentTrip() { return trips.find(t => t.id === currentTripId); }
+
+// ── Formatting ──────────────────────────────────────────
+function fmtAmt(amount, cur) {
+  const c = cur || 'EUR';
+  const dec = CUR_DEC[c] ?? 2;
+  const sym = CUR_SYM[c] || c + ' ';
+  const n = Number(amount) || 0;
+  return (c === 'KRW' || c === 'JPY') ? sym + Math.round(n).toLocaleString() : sym + n.toFixed(dec);
+}
+function fmtDate(d) {
+  if (!d) return '-';
+  const [y,m,day] = d.split('-');
+  return `${y}년 ${parseInt(m)}월 ${parseInt(day)}일`;
+}
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function countryTag(c) {
+  if (!c) return '';
+  const info = COUNTRY_INFO[c];
+  return `<span class="tag ${info?info.cls:'tag-etc'}">${info?info.flag:'🌍'} ${c}</span>`;
+}
+
+// ── Trip Home ───────────────────────────────────────────
+function renderHome() {
+  document.getElementById('tripHome').style.display = '';
+  document.getElementById('app').style.display = 'none';
+
+  const grid = document.getElementById('tripGrid');
+  grid.innerHTML = trips.map(t => {
+    const entries = t.entries || [];
+    const totalByCur = {};
+    entries.forEach(e => {
+      if (e.type !== 'expense') return;
+      const c = e.currency || 'EUR';
+      totalByCur[c] = (totalByCur[c]||0) + (parseFloat(e.amount)||0);
+    });
+    const totalStr = Object.entries(totalByCur).map(([c,v]) => fmtAmt(v,c)).join(' + ') || '지출 없음';
+    const dateStr = t.start ? `${fmtDate(t.start)}${t.end?' ~ '+fmtDate(t.end):''}` : '날짜 미설정';
+    return `
+    <div class="trip-card" onclick="openTrip('${t.id}')">
+      <button class="trip-del" onclick="deleteTrip(event,'${t.id}')">🗑️</button>
+      <div class="trip-emoji">${t.emoji||'✈️'}</div>
+      <div class="trip-name">${esc(t.name)}</div>
+      <div class="trip-meta">${dateStr}</div>
+      <div class="trip-total">${totalStr}</div>
+    </div>`;
+  }).join('') + `
+  <div class="trip-card new-card" onclick="openTripModal()">
+    <div class="new-card-icon">＋</div>
+    <div class="new-card-text">새 여행 만들기</div>
+  </div>`;
+}
+
+function openTrip(id) {
+  currentTripId = id;
+  const trip = currentTrip();
+  document.getElementById('tripHome').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('appEmoji').textContent = trip.emoji || '✈️';
+  document.getElementById('appTitle').textContent = trip.name;
+  // reset view
+  currentView = 'table';
+  document.getElementById('tableWrap').style.display = '';
+  document.getElementById('dateView').style.display = 'none';
+  document.querySelectorAll('.toolbar-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.toolbar-btn').classList.add('active');
+  renderAll();
+}
+
+function goHome() {
+  currentTripId = null;
+  renderHome();
+}
+
+function deleteTrip(e, id) {
+  e.stopPropagation();
+  const t = trips.find(x => x.id === id);
+  if (!confirm(`"${t.name}" 여행을 삭제할까요?\n모든 항목이 삭제됩니다.`)) return;
+  trips = trips.filter(x => x.id !== id);
+  saveTrips();
+  renderHome();
+}
+
+// ── Trip Modal ──────────────────────────────────────────
+function openTripModal(id) {
+  editingTripId = id || null;
+  const overlay = document.getElementById('tripModalOverlay');
+  document.getElementById('tripModalTitle').textContent = id ? '여행 수정' : '새 여행 만들기';
+
+  // Build emoji picker
+  const row = document.getElementById('emojiRow');
+  row.innerHTML = EMOJIS.map(em => `<span class="emoji-opt" onclick="selectEmoji('${em}')">${em}</span>`).join('');
+
+  if (id) {
+    const t = trips.find(x => x.id === id);
+    document.getElementById('tName').value = t.name;
+    document.getElementById('tStart').value = t.start || '';
+    document.getElementById('tEnd').value = t.end || '';
+    selectEmoji(t.emoji || '✈️');
+  } else {
+    document.getElementById('tName').value = '';
+    document.getElementById('tStart').value = '';
+    document.getElementById('tEnd').value = '';
+    selectEmoji('✈️');
+  }
+  overlay.classList.add('open');
+  setTimeout(() => document.getElementById('tName').focus(), 100);
+}
+
+function openTripEdit() { openTripModal(currentTripId); }
+
+function selectEmoji(em) {
+  document.getElementById('tEmoji').value = em;
+  document.querySelectorAll('.emoji-opt').forEach(el => {
+    el.classList.toggle('selected', el.textContent === em);
+  });
+}
+
+function closeTripModal() { document.getElementById('tripModalOverlay').classList.remove('open'); }
+function closeTripModalOnBg(e) { if (e.target === document.getElementById('tripModalOverlay')) closeTripModal(); }
+
+function saveTrip() {
+  const name = document.getElementById('tName').value.trim();
+  if (!name) { document.getElementById('tName').focus(); return; }
+  const emoji = document.getElementById('tEmoji').value || '✈️';
+  const start = document.getElementById('tStart').value;
+  const end = document.getElementById('tEnd').value;
+
+  if (editingTripId) {
+    const t = trips.find(x => x.id === editingTripId);
+    Object.assign(t, { name, emoji, start, end });
+    if (currentTripId === editingTripId) {
+      document.getElementById('appEmoji').textContent = emoji;
+      document.getElementById('appTitle').textContent = name;
+    }
+  } else {
+    trips.push({ id: Date.now().toString(), name, emoji, start, end, entries: [] });
+  }
+  saveTrips();
+  closeTripModal();
+  if (!currentTripId) renderHome();
+}
+
+// ── Entry Filter/Sort ───────────────────────────────────
+function getFiltered() {
+  const entries = currentTrip()?.entries || [];
+  const type = document.getElementById('filterType')?.value || 'all';
+  const country = document.getElementById('filterCountry')?.value || 'all';
+  const search = (document.getElementById('filterSearch')?.value || '').toLowerCase();
+  return entries.filter(e => {
+    if (type !== 'all' && e.type !== type) return false;
+    if (country !== 'all' && e.country !== country) return false;
+    if (search && !e.name.toLowerCase().includes(search) && !(e.note||'').toLowerCase().includes(search)) return false;
+    return true;
+  });
+}
+
+function getSorted(list) {
+  return [...list].sort((a,b) => {
+    let va = a[sortField]||'', vb = b[sortField]||'';
+    if (sortField === 'amount') { va = parseFloat(va)||0; vb = parseFloat(vb)||0; }
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    return 0;
+  });
+}
+
+// ── Summary ─────────────────────────────────────────────
+function renderCountrySummary(filtered) {
+  const byGroup = {};
+  filtered.forEach(e => {
+    const key = (e.country||'기타') + '|' + (e.currency||'EUR');
+    if (!byGroup[key]) byGroup[key] = { country: e.country||'기타', currency: e.currency||'EUR', expense:0, income:0, count:0 };
+    const a = parseFloat(e.amount)||0;
+    if (e.type==='expense') byGroup[key].expense += a;
+    else byGroup[key].income += a;
+    byGroup[key].count++;
+  });
+  const container = document.getElementById('countrySummary');
+  const groups = Object.values(byGroup);
+  if (!groups.length) { container.innerHTML = ''; return; }
+  container.innerHTML = groups.map(g => {
+    const info = COUNTRY_INFO[g.country] || { flag:'🌍' };
+    const net = g.income - g.expense;
+    return `
+    <div class="country-card">
+      <div class="country-flag">${info.flag}</div>
+      <div class="country-info">
+        <div class="country-name">${esc(g.country)}</div>
+        <div class="country-currency">${g.currency} · ${g.count}건</div>
+        <div style="font-size:12px;color:var(--text2)">지출 <span style="color:var(--red);font-weight:600">${fmtAmt(g.expense,g.currency)}</span></div>
+        ${g.income>0 ? `<div style="font-size:12px;color:var(--text2)">수입 <span style="color:var(--green);font-weight:600">+${fmtAmt(g.income,g.currency)}</span></div>` : ''}
+        <div style="font-size:13px;font-weight:700;color:${net>=0?'var(--green)':'var(--red)'};margin-top:3px;border-top:1px solid var(--border);padding-top:3px">차액 ${net>=0?'+':''}${fmtAmt(net,g.currency)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTotals(filtered) {
+  const byCur = {};
+  filtered.forEach(e => {
+    const c = e.currency||'EUR';
+    if (!byCur[c]) byCur[c] = { exp:0, inc:0 };
+    const a = parseFloat(e.amount)||0;
+    if (e.type==='expense') byCur[c].exp += a;
+    else byCur[c].inc += a;
+  });
+  const expP=[], incP=[];
+  Object.entries(byCur).forEach(([c,v]) => {
+    if (v.exp>0) expP.push(fmtAmt(v.exp,c));
+    if (v.inc>0) incP.push(fmtAmt(v.inc,c));
+  });
+  document.getElementById('sumExpense').textContent = expP.join(' + ') || '0';
+  document.getElementById('sumIncome').textContent = incP.join(' + ') || '0';
+  document.getElementById('sumCount').textContent = filtered.length + '건';
+
+  const balEl = document.getElementById('sumBalance');
+  const cardEl = document.getElementById('cardBalance');
+  const balParts = Object.entries(byCur).map(([c,v]) => ({ c, net: v.inc - v.exp }));
+  if (!balParts.length) {
+    balEl.textContent = '0'; balEl.style.color='var(--text)';
+    if (cardEl) cardEl.style.borderColor='var(--border)';
+  } else {
+    balEl.innerHTML = balParts.map(({c,net}) =>
+      `<span style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':''}${fmtAmt(net,c)}</span>`
+    ).join('<br>');
+    if (cardEl) cardEl.style.borderColor = balParts.every(p=>p.net>=0) ? 'var(--green)' : balParts.every(p=>p.net<0) ? 'var(--red)' : 'var(--border)';
+  }
+
+  const footTotal = document.getElementById('footTotal');
+  if (footTotal) {
+    footTotal.innerHTML = balParts.map(({c,net}) =>
+      `<span style="color:${net>=0?'var(--green)':'var(--red)'};margin-right:8px">${net>=0?'+':''}${fmtAmt(net,c)}</span>`
+    ).join('') || '';
+  }
+}
+
+// ── Table ────────────────────────────────────────────────
+function renderTable() {
+  const filtered = getSorted(getFiltered());
+  const tbody = document.getElementById('tbody');
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div style="font-size:32px">🧳</div><p>아직 항목이 없어요. 새 항목을 추가해보세요!</p></div></td></tr>`;
+    renderTotals([]); renderCountrySummary([]); return;
+  }
+  tbody.innerHTML = filtered.map(e => {
+    const isExp = e.type==='expense';
+    const cur = e.currency||'EUR';
+    const amt = parseFloat(e.amount)||0;
+    return `
+    <tr>
+      <td data-label="이름"><div class="td-name"><span style="color:var(--text2);font-size:13px">📄</span><span class="name-text">${esc(e.name)}</span></div></td>
+      <td data-label="날짜">${fmtDate(e.date)}</td>
+      <td data-label="구분"><span style="font-size:12px;padding:2px 7px;border-radius:4px;background:${isExp?'#fff5f5':'#f0faf4'};color:${isExp?'var(--red)':'var(--green)'}">${isExp?'지출':'수입'}</span></td>
+      <td data-label="금액" class="td-amount">
+        <span class="${isExp?'amount-expense':'amount-income'}">${isExp?'-':'+'}${fmtAmt(amt,cur)}</span>
+        ${e.krw?`<div style="font-size:11px;color:var(--text2)">≈${fmtAmt(e.krw,'KRW')}</div>`:''}
+      </td>
+      <td data-label="국가">${countryTag(e.country)}</td>
+      <td data-label="통화"><span class="cur-badge">${cur}</span></td>
+      <td data-label="비고" style="color:var(--text2);font-size:13px">${esc(e.note)}</td>
+      <td><div class="action-btns">
+        <button class="btn-icon" onclick="editEntry('${e.id}')">✏️</button>
+        <button class="btn-icon" onclick="deleteEntry('${e.id}')">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  renderTotals(filtered); renderCountrySummary(filtered);
+}
+
+// ── Date view ────────────────────────────────────────────
+function renderDateView() {
+  const filtered = getSorted(getFiltered());
+  const grouped = {};
+  filtered.forEach(e => { const d=e.date||'날짜 없음'; if(!grouped[d]) grouped[d]=[]; grouped[d].push(e); });
+  const container = document.getElementById('dateView');
+  if (!Object.keys(grouped).length) {
+    container.innerHTML='<div class="empty-state"><div style="font-size:32px">🧳</div><p>항목이 없어요.</p></div>';
+    renderTotals([]); renderCountrySummary([]); return;
+  }
+  container.innerHTML = Object.keys(grouped).sort((a,b)=>sortAsc?a.localeCompare(b):b.localeCompare(a)).map(date => {
+    const items = grouped[date];
+    const dayCur = {};
+    items.forEach(e => { const c=e.currency||'EUR'; if(!dayCur[c]) dayCur[c]=0; dayCur[c]+=(e.type==='expense'?-1:1)*(parseFloat(e.amount)||0); });
+    const dayStr = Object.entries(dayCur).map(([c,v])=>`<span style="color:${v<0?'var(--red)':'var(--green)'}">${v>=0?'+':''}${fmtAmt(v,c)}</span>`).join(' ');
+    return `
+    <div style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:2px solid var(--border);margin-bottom:8px">
+        <span style="font-weight:600;font-size:15px">📅 ${fmtDate(date)}</span>
+        <span style="font-size:13px;display:flex;gap:8px">${dayStr}</span>
+      </div>
+      ${items.map(e => {
+        const isExp=e.type==='expense'; const cur=e.currency||'EUR'; const info=COUNTRY_INFO[e.country]||{};
+        return `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:1px solid var(--border);margin-bottom:6px;background:var(--bg)">
+          <span style="font-size:20px">${isExp?'💸':'💰'}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.name)}</div>
+            <div style="font-size:12px;color:var(--text2)">${info.flag||''}${e.country?' '+e.country:''}${e.note?' · '+esc(e.note):''}<span class="cur-badge" style="margin-left:4px">${cur}</span></div>
+          </div>
+          <div style="font-weight:600;color:${isExp?'var(--red)':'var(--green)'};white-space:nowrap;text-align:right">
+            ${isExp?'-':'+'}${fmtAmt(parseFloat(e.amount)||0,cur)}
+            ${e.krw?`<div style="font-size:11px;font-weight:400;color:var(--text2)">≈${fmtAmt(e.krw,'KRW')}</div>`:''}
+          </div>
+          <div style="display:flex;gap:4px">
+            <button class="btn-icon" onclick="editEntry('${e.id}')">✏️</button>
+            <button class="btn-icon" onclick="deleteEntry('${e.id}')">🗑️</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+  renderTotals(filtered); renderCountrySummary(filtered);
+}
+
+function renderAll() {
+  if (currentView==='table') renderTable();
+  else renderDateView();
+}
+
+function sortBy(field) {
+  if (sortField===field) sortAsc=!sortAsc; else { sortField=field; sortAsc=true; }
+  renderAll();
+}
+
+function setView(v, btn) {
+  currentView = v;
+  document.querySelectorAll('.toolbar-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tableWrap').style.display = v==='table' ? '' : 'none';
+  document.getElementById('dateView').style.display = v==='calendar' ? '' : 'none';
+  renderAll();
+}
+
+function toggleFilter() {
+  filterOpen = !filterOpen;
+  document.getElementById('filterBar').style.display = filterOpen ? '' : 'none';
+  document.getElementById('filterBtn').classList.toggle('active', filterOpen);
+}
+
+// ── Entry Modal ──────────────────────────────────────────
+function onCountryChange() {
+  const c = document.getElementById('fCountry').value;
+  const info = COUNTRY_INFO[c];
+  if (info) { document.getElementById('fCurrency').value = info.currency; onCurrencyChange(); }
+}
+function onCurrencyChange() {
+  document.getElementById('fKrwGroup').style.display = document.getElementById('fCurrency').value==='KRW' ? 'none' : '';
+}
+function openModal(id) {
+  editingEntryId = id || null;
+  document.getElementById('modalTitle').textContent = id ? '항목 수정' : '새 항목 추가';
+  if (id) {
+    const e = (currentTrip()?.entries||[]).find(x=>x.id===id);
+    document.getElementById('fName').value = e.name;
+    document.getElementById('fDate').value = e.date;
+    document.getElementById('fAmount').value = e.amount;
+    document.getElementById('fKrw').value = e.krw||'';
+    document.getElementById('fNote').value = e.note||'';
+    document.getElementById('fCountry').value = e.country||'';
+    document.getElementById('fCurrency').value = e.currency||'EUR';
+    document.querySelector(`input[name="type"][value="${e.type}"]`).checked = true;
+  } else {
+    document.getElementById('fName').value = '';
+    document.getElementById('fDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('fAmount').value = '';
+    document.getElementById('fKrw').value = '';
+    document.getElementById('fNote').value = '';
+    document.getElementById('fCountry').value = '';
+    document.getElementById('fCurrency').value = 'EUR';
+    document.querySelector('input[name="type"][value="expense"]').checked = true;
+  }
+  updateTypeStyle(); onCurrencyChange();
+  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('fName').focus(), 100);
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); editingEntryId=null; }
+function closeModalOnBg(e) { if (e.target===document.getElementById('modalOverlay')) closeModal(); }
+function updateTypeStyle() {
+  const val = document.querySelector('input[name="type"]:checked')?.value;
+  document.getElementById('lblExpense').className = 'radio-label'+(val==='expense'?' sel-expense':'');
+  document.getElementById('lblIncome').className = 'radio-label'+(val==='income'?' sel-income':'');
+}
+function saveEntry() {
+  const name = document.getElementById('fName').value.trim();
+  if (!name) { document.getElementById('fName').focus(); return; }
+  const entry = {
+    id: editingEntryId || Date.now().toString(),
+    name,
+    amount: parseFloat(document.getElementById('fAmount').value)||0,
+    krw: parseFloat(document.getElementById('fKrw').value)||0,
+    date: document.getElementById('fDate').value,
+    note: document.getElementById('fNote').value.trim(),
+    country: document.getElementById('fCountry').value,
+    currency: document.getElementById('fCurrency').value,
+    type: document.querySelector('input[name="type"]:checked').value,
+  };
+  const trip = currentTrip();
+  if (editingEntryId) {
+    const idx = trip.entries.findIndex(x=>x.id===editingEntryId);
+    trip.entries[idx] = entry;
+  } else {
+    trip.entries.push(entry);
+  }
+  saveTrips(); closeModal(); renderAll();
+}
+function editEntry(id) { openModal(id); }
+function deleteEntry(id) {
+  if (!confirm('이 항목을 삭제할까요?')) return;
+  const trip = currentTrip();
+  trip.entries = trip.entries.filter(e=>e.id!==id);
+  saveTrips(); renderAll();
+}
+
+// ── Keyboard ─────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') { closeModal(); closeTripModal(); }
+  if (e.key==='Enter' && e.target.tagName!=='TEXTAREA') {
+    if (document.getElementById('modalOverlay').classList.contains('open')) saveEntry();
+    if (document.getElementById('tripModalOverlay').classList.contains('open')) saveTrip();
+  }
+});
+
+// ── Init ─────────────────────────────────────────────────
+renderHome();
+</script>
+</body>
+</html>
