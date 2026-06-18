@@ -379,7 +379,16 @@ let tripsRef = null;
 
 // ── Auth ────────────────────────────────────────────────
 function signInGoogle() {
-  auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(err => {
+    // 팝업 차단 시 리다이렉트로 대체
+    if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
+      auth.signInWithRedirect(provider);
+    } else {
+      console.error(err);
+      alert('로그인 오류: ' + err.message);
+    }
+  });
 }
 function doSignOut() {
   if (!confirm('로그아웃 할까요?')) return;
