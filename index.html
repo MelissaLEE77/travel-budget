@@ -379,7 +379,7 @@ let tripsRef = null;
 
 // ── Auth ────────────────────────────────────────────────
 function signInGoogle() {
-  auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+  auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());
 }
 function doSignOut() {
   if (!confirm('로그아웃 할까요?')) return;
